@@ -63,15 +63,7 @@ wheels = [
 [[package]]
 name = "evalkit"
 version = "0.1.0"
-source = { editable = "../evalkit" }
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.6" },
-]
+source = { git = "https://github.com/kennywu411-dev/evalkit?rev=a13ff0a7f9ac78bf3196b2eaa2bf525bc2b4fa25#a13ff0a7f9ac78bf3196b2eaa2bf525bc2b4fa25" }
 
 [[package]]
 name = "h11"
@@ -253,7 +245,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.0" },
-    { name = "evalkit", editable = "../evalkit" },
+    { name = "evalkit", git = "https://github.com/kennywu411-dev/evalkit?rev=a13ff0a7f9ac78bf3196b2eaa2bf525bc2b4fa25" },
     { name = "openai", specifier = ">=2.0" },
 ]
 

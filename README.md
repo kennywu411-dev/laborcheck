@@ -1,5 +1,7 @@
 # laborcheck
 
+[![CI](https://github.com/kennywu411-dev/laborcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/kennywu411-dev/laborcheck/actions/workflows/ci.yml) ![Python 3.12](https://img.shields.io/badge/python-3.12-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
 中国劳动合同与 Offer 的规则引擎，以及一个用来测量大模型在这类问题上准确率的公开评测集。
 
 劳动合同和 offer 里有很多确定性的法条规则和本地计算：试用期上限、违约金能不能约定、竞业限制补偿、加班费、经济补偿封顶、各城市社保公积金基数、年终奖计税……这些问题有唯一正确的答案，但答案依赖具体条文和当年的地方数据。本项目要回答两个问题：
