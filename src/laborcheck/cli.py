@@ -43,6 +43,81 @@ def cmd_city(a: argparse.Namespace) -> None:
         print(f"  注：{n}")
 
 
+def cmd_sources(a: argparse.Namespace) -> None:
+    """输出数据来源文档（Markdown）。"""
+    from laborcheck.cities import all_cities
+    from laborcheck.core import sources
+
+    out = [
+        "# 数据来源",
+        "",
+        "本文件由 `uv run laborcheck sources` 根据数据文件生成，请勿手工修改。",
+        "",
+        "## 全国性法律法规与政策",
+        "",
+        "| 文件 | 版本 | 核对状态 |",
+        "|---|---|---|",
+    ]
+    for s in sources().values():
+        status = "已核对" if s["status"] == "verified" else "待核实"
+        out.append(f"| [{s['name']}]({s['url']}) | {s.get('version', '')} | {status} |")
+    labels = {
+        "min_wage_monthly": "月最低工资",
+        "min_wage_hourly": "小时最低工资",
+        "avg_monthly_wage": "经济补偿封顶用月平均工资",
+        "hf_base_lower": "公积金基数下限",
+        "hf_base_upper": "公积金基数上限",
+        "hf_rate_min": "公积金比例下限",
+        "hf_rate_max": "公积金比例上限",
+        "noncompete_min_ratio": "竞业限制补偿最低比例",
+    }
+    for c in all_cities():
+        out += [
+            "",
+            f"## {c.name}",
+            "",
+            f"适用期间：{c.period}",
+            "",
+            "| 项目 | 数值 | 适用期间 | 来源 | 原文摘录 |",
+            "|---|---|---|---|---|",
+        ]
+        for key, label in labels.items():
+            v = getattr(c, key)
+            if v is None:
+                out.append(f"| {label} | 待核实（未找到官方来源，引擎不提供） | | | |")
+                continue
+            src = c.source_of(key)
+            mark = "（推算值）" if src.get("derived") == "True" else ""
+            out.append(
+                f"| {label} | {v}{mark} | {src.get('period', '')} | "
+                f"[{src.get('doc_name', '')}]({src.get('doc_url', '')}) | {src.get('quote', '')} |"
+            )
+        out += [
+            "",
+            "| 社保险种 | 基数下限 | 基数上限 | 个人比例 | 单位比例 | 说明 | 来源 |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for it in c.si_items:
+            src = c.sources[f"si.{it.code}"]
+            fixed = f" + {it.employee_fixed} 元/月" if it.employee_fixed else ""
+            out.append(
+                f"| {it.name} | {it.base_lower} | {it.base_upper} | {it.employee_rate:%}{fixed} | "
+                f"{it.employer_rate:%} | {src.get('period', '')} | "
+                f"[{src.get('doc_name', '')}]({src.get('doc_url', '')}) |"
+            )
+        if c.notes:
+            out += ["", "说明：", ""] + [f"- {n}" for n in c.notes]
+        docs = {}
+        for v in c.sources.values():
+            if v.get("doc_url"):
+                docs[v["doc_url"]] = v.get("doc_name", "")
+    text = "\n".join(out) + "\n"
+    if a.out:
+        Path(a.out).write_text(text, "utf-8")
+    else:
+        print(text)
+
+
 def cmd_models(a: argparse.Namespace) -> None:
     from laborcheck.bench.providers import load_env, load_models
 
@@ -130,6 +205,10 @@ def main(argv: list[str] | None = None) -> None:
     c = sub.add_parser("city", help="查看城市数据及来源")
     c.add_argument("code", choices=CITY_CODES)
     c.set_defaults(fn=cmd_city)
+
+    so = sub.add_parser("sources", help="输出数据来源文档")
+    so.add_argument("--out", default=None)
+    so.set_defaults(fn=cmd_sources)
 
     m = sub.add_parser("models", help="列出模型")
     m.set_defaults(fn=cmd_models)
