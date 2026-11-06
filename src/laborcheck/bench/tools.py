@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -212,23 +213,34 @@ TOOLS: list[tuple[str, str, dict[str, Any], Callable[..., Any]]] = [
     ),
     (
         "economic_compensation",
-        "计算经济补偿（第四十七条，含社平工资三倍封顶和最低工资保底）；illegal=true 时计算违法解除赔偿金（二倍）。",
+        "计算经济补偿（第四十七条，含社平工资三倍封顶和最低工资保底）；illegal=true 时计算违法解除赔偿金（二倍）。"
+        "城市缺少官方封顶基数、或题目给定了社平工资时，用 local_avg_monthly_wage 传入当地上年度职工月平均工资。",
         _obj(
             {
                 "avg_monthly_wage": NUM,
                 "months_worked": INT,
                 "city": CITY,
                 "illegal": {"type": "boolean"},
+                "local_avg_monthly_wage": {
+                    "type": "number",
+                    "description": "当地上年度职工月平均工资（可选，覆盖城市数据）",
+                },
             },
             ["avg_monthly_wage", "months_worked", "city"],
         ),
-        lambda avg_monthly_wage, months_worked, city, illegal=False: (
+        lambda avg_monthly_wage, months_worked, city, illegal=False, local_avg_monthly_wage=None: (
             severance.illegal_termination_damages if illegal else severance.economic_compensation
-        )(avg_monthly_wage, months_worked, _city(city)),
+        )(
+            avg_monthly_wage,
+            months_worked,
+            replace(_city(city), avg_monthly_wage=_num(local_avg_monthly_wage))
+            if local_avg_monthly_wage is not None
+            else _city(city),
+        ),
     ),
     (
         "no_contract_double_wage",
-        "未签书面劳动合同的二倍工资差额（按整月计）。",
+        "未签书面劳动合同的二倍工资差额（按整月计）。months_without_contract 为自用工之日起已工作的整月数（期间一直未签书面合同），函数内部自动扣除第一个月并封顶 11 个月。",
         _obj(
             {"monthly_wage": NUM, "months_without_contract": INT},
             ["monthly_wage", "months_without_contract"],

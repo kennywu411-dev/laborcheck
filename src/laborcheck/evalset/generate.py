@@ -40,7 +40,7 @@ from laborcheck.rules.overtime import OvertimeKind
 from laborcheck.rules.penalty import PenaltyKind
 from laborcheck.rules.probation import TermKind
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 HOLDOUT_SHARE = 0.3
 
 Item = dict[str, Any]
@@ -172,7 +172,7 @@ def gen_probation_term(rng: random.Random, cities: list[CityPolicy]) -> Iterator
         if not f.ok:
             qr = (
                 f"以下是一份劳动合同中的条款：\n「{clause}」\n"
-                "请判断试用期约定是否合法；如不合法，请改写该条款使其合法，"
+                "请判断试用期约定是否合法；如不合法，请在合同期限不变的前提下改写该条款使其合法，"
                 "并在 key_value 中给出改写后的试用期月数。"
             )
             yield _item(

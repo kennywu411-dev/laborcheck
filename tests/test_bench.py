@@ -110,3 +110,24 @@ def test_client_offline():
         )
     )
     assert json.loads(reply.text)["verdict"] == "合法"
+
+
+def test_economic_compensation_tool_override():
+    out = json.loads(
+        call_tool(
+            "economic_compensation",
+            {
+                "avg_monthly_wage": 45000,
+                "months_worked": 170,
+                "city": "hangzhou",
+                "local_avg_monthly_wage": 12000,
+            },
+        )
+    )
+    assert out["values"]["amount"] == 432000.0
+    assert "error" in json.loads(
+        call_tool(
+            "economic_compensation",
+            {"avg_monthly_wage": 45000, "months_worked": 170, "city": "hangzhou"},
+        )
+    )
