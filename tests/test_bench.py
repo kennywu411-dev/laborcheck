@@ -131,3 +131,109 @@ def test_economic_compensation_tool_override():
             {"avg_monthly_wage": 45000, "months_worked": 170, "city": "hangzhou"},
         )
     )
+
+
+def test_run_rows_carry_evalkit_fields(tmp_path):
+    from evalkit import store
+
+    from laborcheck.evalset.generate import generate
+
+    items = generate()[:6]
+    spec = ModelSpec("oracle", "oracle", "offline", "oracle")
+    rd = tmp_path / "r"
+    asyncio.run(
+        run(spec, items, run_dir=rd, with_tools=True, budget_usd=1, meta={"dataset_version": "9"})
+    )
+    rows = store.load_rows(rd)
+    assert {r["variant"] for r in rows} == {"oracle-tools"}
+    assert all(r["scores"]["laborcheck"]["passed"] and r["passed"] for r in rows)
+    cfg = store.load_config(rd)
+    assert cfg["mode"] == "tools" and cfg["model"]["name"] == "oracle"
+    assert cfg["dataset"]["version"] == "9" and cfg["primary_metric"] == "laborcheck"
+    assert not (rd / "traces").exists()  # 过程记在结果行里，不另写 trace 文件
+
+
+def test_errors_retried_and_counted_in_budget(tmp_path, monkeypatch):
+    from laborcheck.bench.providers import Reply
+    from laborcheck.evalset.generate import generate
+
+    items = generate()[:3]
+    calls = []
+
+    async def flaky(self, system, user, *, with_tools, item=None):
+        calls.append(item["id"])
+        if len(calls) <= 3:
+            return Reply(text="", error="APIError: boom", cost_usd=0.4)
+        return Reply(text=json.dumps({"verdict": item["expected"].get("verdict")}), cost_usd=0.1)
+
+    monkeypatch.setattr(Client, "ask", flaky)
+    spec = ModelSpec("x", "x", "offline", "x")
+    rd = tmp_path / "r"
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3))
+    assert res["done"] == 0 and res["spent_usd"] == 1.2
+    recs = latest_records(rd)
+    assert all(r["status"] == "error" and r["detail"] == {"reason": "error"} for r in recs)
+    # 续跑：出错的题重跑；已花的 1.2 计入上限 1.3，只够再发起一题
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3, concurrency=1))
+    assert res["stopped_by_budget"] and len(calls) == 4
+    assert res["spent_usd"] == 1.3
+    # 再续跑：被重跑掉的出错记录（0.4）仍算已花，累计 1.3 已到上限，不再发起调用
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3))
+    assert len(calls) == 4 and res["spent_usd"] == 1.3 and res["done"] == 1
+
+
+def test_legacy_run_cannot_resume(tmp_path):
+    rd = tmp_path / "old"
+    rd.mkdir()
+    (rd / "results.jsonl").write_text(json.dumps({"item_id": "lc-0001", "status": "ok"}) + "\n")
+    spec = ModelSpec("oracle", "oracle", "offline", "oracle")
+    with pytest.raises(SystemExit, match="接入 evalkit 之前"):
+        asyncio.run(run(spec, [], run_dir=rd, with_tools=False, budget_usd=1))
+
+
+def test_mcnemar_table_matches_results_doc():
+    from pathlib import Path
+
+    from laborcheck.bench.report import mcnemar_table
+
+    pairs = [
+        (Path(f"runs/v102-{m}-closed"), Path(f"runs/v102-{m}-tools"))
+        for m in ("claude", "claude-sonnet", "claude-haiku")
+    ]
+    table = mcnemar_table(pairs)
+    doc = Path("docs/results.md").read_text("utf-8")
+    assert table in doc
+    assert "| Claude Opus 5.5 | 42 | 4 | 5.1e-09 |" in table
+
+
+def test_gate_and_dashboard_cli(tmp_path):
+    from laborcheck import cli
+
+    with pytest.raises(SystemExit) as e:
+        cli.main(
+            [
+                "gate",
+                "--baseline",
+                "runs/v102-claude-closed",
+                "--candidate",
+                "runs/v102-claude-tools",
+            ]
+        )
+    assert e.value.code == 0
+    with pytest.raises(SystemExit) as e:
+        cli.main(
+            [
+                "gate",
+                "--baseline",
+                "runs/v102-claude-tools",
+                "--candidate",
+                "runs/v102-claude-closed",
+            ]
+        )
+    assert e.value.code == 1
+    out = tmp_path / "site" / "index.html"
+    cli.main(
+        ["dashboard", "runs/pilot-claude-closed", "runs/pilot-claude-tools", "--out", str(out)]
+    )
+    html = out.read_text("utf-8")
+    assert "pilot-claude-tools" in html and "laborcheck" in html

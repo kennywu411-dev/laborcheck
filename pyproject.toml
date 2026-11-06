@@ -9,12 +9,17 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.0",
+    "evalkit",
     "openai>=2.0",
 ]
 
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+# 评测平台（同级目录的 evalkit 仓库）：运行、统计、对比、门禁、看板都由它提供
+[tool.uv.sources]
+evalkit = { path = "../evalkit", editable = true }
 
 [dependency-groups]
 dev = [

@@ -29,7 +29,7 @@
 | 依据登记 | `src/laborcheck/data/sources.toml` | 全国性法律法规、司法解释、税收政策，均对照官方原文核对 |
 | 城市数据 | `src/laborcheck/data/cities/` | 北京、上海、深圳、杭州的社保、公积金、最低工资等，每个数字附官方链接、文号、适用期间和原文摘录 |
 | 评测集 | `data/laborcheck-v1.jsonl` | 合同和 offer 均为构造；标准答案由引擎计算并经人工抽检；分开发集和留出集 |
-| 测评工具 | `src/laborcheck/bench/` | 统一提示、打分、工具调用、花费上限、逐题记录 |
+| 测评工具 | `src/laborcheck/bench/` | 统一提示、打分、工具调用；运行、统计、配对检验、门禁和看板由评测平台 [evalkit](https://github.com/kennywu411-dev/evalkit) 提供 |
 | 文档 | `docs/` | 数据来源、评测集说明、抽检记录、测评结果、技术报告 |
 
 ## 规则覆盖
@@ -90,7 +90,18 @@ uv run laborcheck run --model deepseek --split all --tools --budget 3
 uv run laborcheck report runs/<运行ID1> runs/<运行ID2>
 ```
 
-每次运行在 `runs/<运行ID>/` 下保存配置快照和逐题结果，可以断点续跑（`--run-id` 指定同一个 ID）。
+每次运行在 `runs/<运行ID>/` 下保存配置快照和逐题结果，可以断点续跑（`--run-id` 指定同一个 ID，出错的题会重跑）。`--budget` 是这个运行目录的累计花费上限，续跑前已花的也算在内。
+
+比较、门禁和看板（只读已有运行，不调用模型）：
+
+```bash
+uv run laborcheck report runs/<运行ID1> runs/<运行ID2> --split     # 另出开发集 / 留出集拆分
+uv run laborcheck compare runs/<仅模型> runs/<加工具> --slice type  # 同一批题上的配对比较（McNemar 精确检验）
+uv run laborcheck gate --baseline runs/<基线> --candidate runs/<候选>  # 显著变差或降幅超过 2% 时退出码 1
+uv run laborcheck dashboard                                         # runs/ 下全部运行 -> site/index.html
+```
+
+结果行同时带 evalkit 的字段（`variant`、`scores` 等）和本项目原有的字段，evalkit 的命令行也可以直接读 `runs/` 下的新运行。接入 evalkit 之前的运行在比较、门禁和看板里现场转换，原文件不改；这些旧运行不能续跑。
 
 ## 评测数据格式
 

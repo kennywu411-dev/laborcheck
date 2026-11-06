@@ -1,13 +1,16 @@
-"""测评运行：逐题落盘、断点续跑、花费上限、配置快照。
+"""测评运行：由评测平台 evalkit 负责并发、逐题落盘、断点续跑和花费上限，本模块只接上模型调用和打分。
 
 运行目录 runs/<run_id>/：
-- config.json   本次运行的模型配置、提示词、数据集版本、抽样方式
-- results.jsonl 每题一行：输出、打分、token、花费、耗时、工具调用记录
+- config.json   本次运行的模型配置、提示词、数据集版本和内容哈希、抽样方式、每题内容哈希
+- results.jsonl 每题一行：evalkit 字段（variant、scores 等）加上原有字段
+                （输出、打分、token、花费、耗时、工具调用记录），原有的汇总代码照常读取
+- summary.json  evalkit 的汇总
+
+工具调用记录照旧放在结果行的 trace 里，不另写 trace 文件（运行目录纳入版本库）。
 """
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import random
@@ -17,9 +20,34 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from evalkit import store
+from evalkit.dataset import Dataset, Item
+from evalkit.runner import TaskResult, Variant
+from evalkit.runner import arun as ek_arun
+from evalkit.scorers import Score
+
 from laborcheck.bench import prompts
 from laborcheck.bench.providers import Client, ModelSpec
 from laborcheck.bench.scoring import score
+
+SCORER = "laborcheck"
+# evalkit 自己写进 config.json 的字段；其余字段是本项目的配置快照，续跑时沿用第一次的
+EVALKIT_CONFIG_KEYS = {
+    "run_id",
+    "tag",
+    "created_at",
+    "dataset",
+    "variants",
+    "scorers",
+    "primary_metric",
+    "repeats",
+    "concurrency",
+    "max_cost",
+    "item_ids",
+    "item_hashes",
+    "code_version",
+    "python",
+}
 
 
 def load_dataset(path: Path) -> list[dict[str, Any]]:
@@ -28,6 +56,11 @@ def load_dataset(path: Path) -> list[dict[str, Any]]:
 
 def dataset_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def dataset_version(path: Path) -> str:
+    meta = path.with_name(path.stem + ".meta.json")
+    return json.loads(meta.read_text("utf-8")).get("version", "0.0.0") if meta.exists() else "0.0.0"
 
 
 def select(
@@ -57,15 +90,49 @@ def new_run_id(model: str, mode: str) -> str:
     return f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}-{model}-{mode}"
 
 
-def _done_ids(path: Path) -> set[str]:
-    if not path.exists():
-        return set()
-    out = set()
-    for line in path.read_text("utf-8").splitlines():
-        rec = json.loads(line)
-        if rec.get("status") == "ok":
-            out.add(rec["item_id"])
-    return out
+class LaborScorer:
+    """evalkit 打分器：沿用 scoring.score。模型调用出错的题记 status=error，续跑时重跑。"""
+
+    name = SCORER
+
+    def __init__(self, items: dict[str, dict]):
+        self.items = items
+
+    def __call__(self, item: Item, output: Any) -> Score:
+        text, err = (
+            (output.get("text", ""), output.get("error"))
+            if isinstance(output, dict)
+            else (output, None)
+        )
+        if err is not None:
+            detail = {"passed": False, "detail": {"reason": "error"}, "basis_hit": None}
+            return Score(0.0, False, detail, status="error")
+        sc = score(self.items[item.id], text or "")
+        return Score(float(sc["passed"]), sc["passed"], sc)
+
+
+def as_dataset(items: list[dict], version: str = "0.0.0") -> Dataset:
+    return Dataset(
+        "laborcheck",
+        [Item(it["id"], it["input"], it["expected"], it["tags"], it["split"]) for it in items],
+        version,
+    )
+
+
+def _legacy_fields(item: Item, row: dict) -> dict[str, Any]:
+    """原有结果行字段（汇总、典型错误、估算都读这些）。"""
+    sc = row["scores"].get(SCORER, {}).get("detail") or {}
+    out = row["output"]
+    return {
+        # 任务本身抛异常时（不经过模型调用）evalkit 不带这些字段，补上默认值
+        **{k: row.get(k, 0) for k in ("tokens_in", "tokens_out", "cache_read", "cache_write")},
+        "trace": row.get("trace", []),
+        "status": "error" if row.get("error") is not None else row["status"],
+        "passed": bool(sc.get("passed", False)),
+        "basis_hit": sc.get("basis_hit"),
+        "detail": sc.get("detail", {"reason": "error"}),
+        "output": out.get("text", "") if isinstance(out, dict) else out,
+    }
 
 
 async def run(
@@ -77,83 +144,80 @@ async def run(
     budget_usd: float,
     concurrency: int = 4,
     meta: dict[str, Any] | None = None,
+    progress: bool = False,
 ) -> dict[str, Any]:
-    run_dir.mkdir(parents=True, exist_ok=True)
-    results_path = run_dir / "results.jsonl"
-    cfg_path = run_dir / "config.json"
+    """budget_usd 是这个运行目录的累计花费上限（续跑前已花的也算），出错的题也计花费。"""
+    results = run_dir / store.RESULTS
+    first = results.read_text("utf-8").split("\n", 1)[0] if results.exists() else ""
+    if first.strip() and "variant" not in json.loads(first):
+        raise SystemExit(f"{run_dir.name} 是接入 evalkit 之前的运行格式，不能续跑，请换一个运行 ID")
     system = prompts.system_prompt(with_tools)
-    if not cfg_path.exists():
-        cfg = {
-            "run_id": run_dir.name,
+    mode = "tools" if with_tools else "closed"
+    prev = store.load_config(run_dir)
+    snapshot = (
+        {k: v for k, v in prev.items() if k not in EVALKIT_CONFIG_KEYS}
+        if prev
+        else {
             "model": asdict(spec),
-            "mode": "tools" if with_tools else "closed",
+            "mode": mode,
             "system_prompt": system,
             "format_hints": prompts.FORMAT_HINT,
             "budget_usd": budget_usd,
-            "item_ids": [it["id"] for it in items],
             **(meta or {}),
         }
-        cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", "utf-8")
-
-    done = _done_ids(results_path)
-    todo = [it for it in items if it["id"] not in done]
+    )
+    # evalkit 续跑时只累计每题最后一条记录的花费；被重跑的出错记录也花了钱，补算进上限
+    lines = results.read_text("utf-8").splitlines() if results.exists() else []
+    superseded = sum(json.loads(x).get("cost_usd", 0) for x in lines if x.strip()) - sum(
+        r.get("cost_usd", 0) for r in store.load_rows(run_dir)
+    )
+    by_id = {it["id"]: it for it in items}
     client = Client(spec)
-    spent = _spent(results_path)
-    sem = asyncio.Semaphore(concurrency)
-    lock = asyncio.Lock()
-    stopped = False
 
-    async def one(item: dict) -> None:
-        nonlocal spent, stopped
-        async with sem:
-            if spent >= budget_usd:
-                stopped = True
-                return
-            reply = await client.ask(
-                system, prompts.user_prompt(item), with_tools=with_tools, item=item
-            )
-            sc = (
-                score(item, reply.text)
-                if reply.error is None
-                else {"passed": False, "detail": {"reason": "error"}, "basis_hit": None}
-            )
-            rec = {
-                "item_id": item["id"],
-                "split": item["split"],
-                "tags": item["tags"],
-                "status": "error" if reply.error else "ok",
+    async def task(item: Item) -> TaskResult:
+        raw = by_id[item.id]
+        reply = await client.ask(system, prompts.user_prompt(raw), with_tools=with_tools, item=raw)
+        usage = {
+            "tokens_in": reply.tokens_in,
+            "tokens_out": reply.tokens_out,
+            "cache_read": reply.cache_read,
+            "cache_write": reply.cache_write,
+        }
+        return TaskResult(
+            {"text": reply.text, "error": reply.error},
+            reply.cost_usd,
+            usage,
+            meta={
                 "error": reply.error,
-                "passed": sc["passed"],
-                "basis_hit": sc["basis_hit"],
-                "detail": sc["detail"],
-                "output": reply.text,
-                "tokens_in": reply.tokens_in,
-                "tokens_out": reply.tokens_out,
-                "cache_read": reply.cache_read,
-                "cache_write": reply.cache_write,
+                **usage,
                 "cost_usd": round(reply.cost_usd, 6),
                 "latency_s": reply.latency_s,
                 "trace": reply.trace,
-            }
-            async with lock:
-                spent += reply.cost_usd
-                with results_path.open("a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            },
+        )
 
-    await asyncio.gather(*(one(it) for it in todo))
+    res = await ek_arun(
+        as_dataset(items, (meta or {}).get("dataset_version", "0.0.0")),
+        [Variant(f"{spec.name}-{mode}", task, {"model": spec.model, "mode": mode})],
+        [LaborScorer(by_id)],
+        runs_dir=run_dir.parent,
+        tag=run_dir.name,
+        resume=run_dir.name,
+        concurrency=concurrency,
+        max_cost=budget_usd - superseded,
+        extra_config=snapshot,
+        progress=progress,
+        row_fields=_legacy_fields,
+        save_traces=False,
+    )
+    ok = {r["item_id"] for r in res.rows if r["status"] == "ok"}
     return {
         "run_dir": str(run_dir),
-        "done": len(_done_ids(results_path)),
+        "done": len(ok),
         "total": len(items),
-        "spent_usd": round(spent, 4),
-        "stopped_by_budget": stopped,
+        "spent_usd": round(res.spent_usd + superseded, 4),
+        "stopped_by_budget": res.skipped > 0,
     }
-
-
-def _spent(path: Path) -> float:
-    if not path.exists():
-        return 0.0
-    return sum(json.loads(line).get("cost_usd", 0) for line in path.read_text("utf-8").splitlines())
 
 
 def latest_records(run_dir: Path) -> list[dict[str, Any]]:

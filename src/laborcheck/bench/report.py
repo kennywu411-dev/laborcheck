@@ -1,14 +1,19 @@
-"""汇总运行结果：准确率（Wilson 95% 区间）、按题型和主题拆分、花费、典型错误。"""
+"""汇总运行结果：准确率（Wilson 95% 区间）、按题型、主题和划分拆分、花费、典型错误；
+两次运行的配对比较（McNemar）、回归门禁和看板。统计口径由评测平台 evalkit 统一提供。"""
 
 from __future__ import annotations
 
 import json
-import math
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from laborcheck.bench.runner import latest_records
+from evalkit import store
+from evalkit.compare import compare as ek_compare
+from evalkit.stats import wilson
+
+from laborcheck.bench.runner import SCORER, latest_records
 
 TYPE_LABEL = {"legality": "合法性判断", "calc": "金额计算", "rewrite": "条款改写"}
 TOPIC_LABEL = {
@@ -31,14 +36,7 @@ TOPIC_LABEL = {
 }
 
 
-def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
-    if n == 0:
-        return (0.0, 0.0)
-    p = k / n
-    d = 1 + z * z / n
-    c = p + z * z / (2 * n)
-    r = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
-    return ((c - r) / d, (c + r) / d)
+SPLIT_LABEL = {"dev": "开发集", "holdout": "留出集"}
 
 
 def _acc(recs: list[dict]) -> dict[str, Any]:
@@ -56,6 +54,7 @@ def summarize(run_dir: Path) -> dict[str, Any]:
         t = r["tags"]
         by["type"][t["type"]].append(r)
         by["topic"][t["topic"]].append(r)
+        by["split"][r["split"]].append(r)
         if t["params_given"]:
             by["data"]["题面给出地方参数"].append(r)
         elif t["needs_local_data"]:
@@ -108,12 +107,11 @@ def markdown_table(summaries: list[dict[str, Any]]) -> str:
 
 def breakdown_table(summaries: list[dict[str, Any]], dim: str) -> str:
     keys = sorted({k for s in summaries for k in s["by"].get(dim, {})})
-    label = (
-        (lambda k: TOPIC_LABEL.get(k, k)) if dim == "topic" else (lambda k: TYPE_LABEL.get(k, k))
-    )
+    labels = {"topic": TOPIC_LABEL, "split": SPLIT_LABEL}.get(dim, TYPE_LABEL)
+    label = lambda k: labels.get(k, k)  # noqa: E731
     head = (
         "| "
-        + {"topic": "主题", "data": "地方数据", "type": "题型"}[dim]
+        + {"topic": "主题", "data": "地方数据", "type": "题型", "split": "划分"}[dim]
         + " | "
         + " | ".join(
             f"{s['model']}（{'工具' if s['mode'] == 'tools' else '仅模型'}）" for s in summaries
@@ -155,3 +153,60 @@ def error_cases(run_dir: Path, dataset: dict[str, dict], limit: int = 8) -> list
         if len(out) >= limit:
             break
     return out
+
+
+def evalkit_rows(run_dir: Path) -> list[dict[str, Any]]:
+    """任意一次运行的 evalkit 结果行：新运行本身就带 evalkit 字段，接入前的运行现场补上。"""
+    cfg = json.loads((run_dir / "config.json").read_text("utf-8"))
+    variant = f"{cfg['model']['name']}-{cfg['mode']}"
+    out = []
+    for r in latest_records(run_dir):
+        if "variant" not in r:
+            r = r | {
+                "variant": variant,
+                "repeat": 0,
+                "scores": {
+                    SCORER: {
+                        "value": float(r["passed"]),
+                        "passed": r["passed"],
+                        "detail": r["detail"],
+                    }
+                },
+            }
+        out.append(r)
+    return out
+
+
+def compare_runs(run_a: Path, run_b: Path, slices: tuple[str, ...] = ()) -> dict[str, Any]:
+    """同一批题上 A → B 的配对比较：a_only = 只有 A 答对的题，b_only = 只有 B 答对的题。"""
+    return ek_compare(evalkit_rows(run_a), evalkit_rows(run_b), slices=slices)
+
+
+def mcnemar_table(pairs: list[tuple[Path, Path]]) -> str:
+    """两种模式的配对比较表（docs/results.md 的格式）：每对是 (仅模型, 加工具)。"""
+    lines = [
+        "| 模型 | 仅加工具后答对 | 仅不加工具时答对 | p 值 |",
+        "|---|---|---|---|",
+    ]
+    for closed, tools in pairs:
+        c = compare_runs(closed, tools)
+        model = json.loads((closed / "config.json").read_text("utf-8"))["model"]["display"]
+        lines.append(f"| {model} | {len(c['b_only'])} | {len(c['a_only'])} | {c['p_value']:.1e} |")
+    return "\n".join(lines)
+
+
+def dashboard(run_dirs: list[Path], output: Path) -> Path:
+    """evalkit 静态看板；接入前的运行在临时目录里转换，原文件不改。"""
+    from evalkit.dashboard import build
+
+    tmp = Path(tempfile.mkdtemp(prefix="laborcheck-dashboard-")) / "laborcheck"
+    dirs = []
+    for rd in run_dirs:
+        d = tmp / rd.name
+        store.write_rows(d, evalkit_rows(rd))
+        cfg = store.load_config(rd)
+        if not isinstance(cfg.get("dataset"), dict):  # 接入前的运行只记了数据集路径
+            cfg["dataset"] = {"name": "laborcheck", "hash": cfg.get("dataset_sha256_12")}
+        store.write_json(d / store.CONFIG, cfg)
+        dirs.append(d)
+    return build(dirs, output, title="laborcheck 评测看板")

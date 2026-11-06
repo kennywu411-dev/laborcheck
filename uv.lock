@@ -61,6 +61,19 @@ wheels = [
 ]
 
 [[package]]
+name = "evalkit"
+version = "0.1.0"
+source = { editable = "../evalkit" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -227,6 +240,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "evalkit" },
     { name = "openai" },
 ]
 
@@ -239,6 +253,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.0" },
+    { name = "evalkit", editable = "../evalkit" },
     { name = "openai", specifier = ">=2.0" },
 ]
 

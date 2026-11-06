@@ -16,3 +16,6 @@ build/
 # 本地运行的原始输出（正式结果另行登记到 runs/）
 scratch/
 .DS_Store
+
+# 评测看板（laborcheck dashboard 生成）
+site/

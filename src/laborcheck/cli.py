@@ -6,6 +6,9 @@ laborcheck models                      列出模型及 .env 中是否有 key
 laborcheck run --model deepseek ...    运行测评
 laborcheck estimate --run runs/<id>    用试跑结果估算全量花费
 laborcheck report runs/<id> ...        汇总结果
+laborcheck compare runs/<A> runs/<B>   两次运行的配对比较（McNemar）
+laborcheck gate --baseline A --candidate B   回归门禁，变差时退出码 1
+laborcheck dashboard runs/<id> ...     生成静态看板
 """
 
 from __future__ import annotations
@@ -129,7 +132,14 @@ def cmd_models(a: argparse.Namespace) -> None:
 
 def cmd_run(a: argparse.Namespace) -> None:
     from laborcheck.bench.providers import load_env, load_models
-    from laborcheck.bench.runner import dataset_hash, load_dataset, new_run_id, run, select
+    from laborcheck.bench.runner import (
+        dataset_hash,
+        dataset_version,
+        load_dataset,
+        new_run_id,
+        run,
+        select,
+    )
 
     load_env()
     spec = load_models()[a.model]
@@ -142,7 +152,8 @@ def cmd_run(a: argparse.Namespace) -> None:
     mode = "tools" if a.tools else "closed"
     run_dir = Path(a.runs) / (a.run_id or new_run_id(a.model, mode))
     meta = {
-        "dataset": str(data_path),
+        "dataset_path": str(data_path),
+        "dataset_version": dataset_version(data_path),
         "dataset_sha256_12": dataset_hash(data_path),
         "split": a.split,
         "per_topic": a.per_topic,
@@ -159,6 +170,7 @@ def cmd_run(a: argparse.Namespace) -> None:
             budget_usd=a.budget,
             concurrency=a.concurrency,
             meta=meta,
+            progress=True,
         )
     )
     print(json.dumps(res, ensure_ascii=False))
@@ -187,10 +199,48 @@ def cmd_report(a: argparse.Namespace) -> None:
         "",
         breakdown_table(sums, "topic"),
     ]
+    if a.split:
+        out += ["", breakdown_table(sums, "split")]
     text = "\n".join(out)
     if a.json:
         Path(a.json).write_text(json.dumps(sums, ensure_ascii=False, indent=2) + "\n", "utf-8")
     print(text)
+
+
+def cmd_compare(a: argparse.Namespace) -> None:
+    from evalkit.compare import render
+
+    from laborcheck.bench.report import compare_runs
+
+    c = compare_runs(Path(a.run_a), Path(a.run_b), tuple(a.slice))
+    print(render(c))
+    print(f"McNemar 精确检验（双侧）p = {c['p_value']:.1e}")
+    if a.json:
+        Path(a.json).write_text(json.dumps(c, ensure_ascii=False, indent=2) + "\n", "utf-8")
+
+
+def cmd_gate(a: argparse.Namespace) -> None:
+    from evalkit.gate import gate
+
+    from laborcheck.bench.report import evalkit_rows
+
+    g = gate(
+        evalkit_rows(Path(a.baseline)),
+        evalkit_rows(Path(a.candidate)),
+        max_drop=a.max_drop,
+        alpha=a.alpha,
+    )
+    print(g.render())
+    sys.exit(0 if g.passed else 1)
+
+
+def cmd_dashboard(a: argparse.Namespace) -> None:
+    from laborcheck.bench.report import dashboard
+
+    dirs = [Path(p) for p in a.runs] or sorted(
+        p for p in Path("runs").iterdir() if (p / "results.jsonl").exists()
+    )
+    print(f"{len(dirs)} 次运行 -> {dashboard(dirs, Path(a.out))}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -236,7 +286,29 @@ def main(argv: list[str] | None = None) -> None:
     rp = sub.add_parser("report", help="汇总结果")
     rp.add_argument("runs", nargs="+")
     rp.add_argument("--json", default=None)
+    rp.add_argument("--split", action="store_true", help="另出开发集 / 留出集拆分表")
     rp.set_defaults(fn=cmd_report)
+
+    cp = sub.add_parser("compare", help="两次运行的配对比较（McNemar 精确检验）")
+    cp.add_argument("run_a")
+    cp.add_argument("run_b")
+    cp.add_argument(
+        "--slice", action="append", default=[], help="按标签拆分，如 type、topic、split"
+    )
+    cp.add_argument("--json", default=None)
+    cp.set_defaults(fn=cmd_compare)
+
+    gt = sub.add_parser("gate", help="回归门禁：候选运行显著变差或降幅超限时退出码 1")
+    gt.add_argument("--baseline", required=True)
+    gt.add_argument("--candidate", required=True)
+    gt.add_argument("--max-drop", type=float, default=0.02, help="允许的准确率降幅")
+    gt.add_argument("--alpha", type=float, default=0.05)
+    gt.set_defaults(fn=cmd_gate)
+
+    db = sub.add_parser("dashboard", help="生成静态看板（默认 runs/ 下全部运行）")
+    db.add_argument("runs", nargs="*")
+    db.add_argument("--out", default="site/index.html")
+    db.set_defaults(fn=cmd_dashboard)
 
     a = p.parse_args(argv)
     a.fn(a)
