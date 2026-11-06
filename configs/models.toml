@@ -57,6 +57,16 @@ output_price = 20.00
 cache_read_price = 0.20
 effort = "medium"
 
+[claude-sonnet]
+display = "Claude Sonnet 5.5"
+api = "anthropic"
+model = "claude-sonnet-5-5"
+key_env = "ANTHROPIC_API_KEY"
+input_price = 2.00
+output_price = 10.00
+cache_read_price = 0.20
+effort = "medium"
+
 [claude-haiku]
 display = "Claude Haiku 5.5"
 api = "anthropic"
