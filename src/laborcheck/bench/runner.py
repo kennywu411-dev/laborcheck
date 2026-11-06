@@ -129,6 +129,8 @@ async def run(
                 "output": reply.text,
                 "tokens_in": reply.tokens_in,
                 "tokens_out": reply.tokens_out,
+                "cache_read": reply.cache_read,
+                "cache_write": reply.cache_write,
                 "cost_usd": round(reply.cost_usd, 6),
                 "latency_s": reply.latency_s,
                 "trace": reply.trace,

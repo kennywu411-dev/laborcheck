@@ -3,13 +3,13 @@
 # 模型名和价格会变，正式运行前请到官网核对；运行记录会保存当时使用的配置。
 
 [deepseek]
-display = "DeepSeek-V3（deepseek-chat）"
+display = "DeepSeek-V4-Pro"
 api = "openai"
 base_url = "https://api.deepseek.com"
-model = "deepseek-chat"
+model = "deepseek-v4-pro"
 key_env = "DEEPSEEK_API_KEY"
-input_price = 0.28
-output_price = 0.42
+input_price = 1.27    # 高峰时段 9 元/百万 token（缓存未命中），空闲时段半价
+output_price = 3.80   # 高峰时段 27 元/百万 token
 
 [doubao]
 display = "豆包（doubao-seed-1-6）"
@@ -30,13 +30,13 @@ input_price = 0.56
 output_price = 2.25
 
 [qwen]
-display = "通义千问 Qwen3-Max"
+display = "通义千问 Qwen3.8-Max"
 api = "openai"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-model = "qwen3-max"
+model = "qwen3.8-max"
 key_env = "DASHSCOPE_API_KEY"
-input_price = 0.85
-output_price = 3.38
+input_price = 1.69    # 12 元/百万 token
+output_price = 5.07   # 36 元/百万 token
 
 [gpt]
 display = "GPT-5 mini"
@@ -54,6 +54,7 @@ model = "claude-opus-5-5"
 key_env = "ANTHROPIC_API_KEY"
 input_price = 4.00
 output_price = 20.00
+cache_read_price = 0.20
 effort = "medium"
 
 [claude-haiku]
@@ -63,3 +64,4 @@ model = "claude-haiku-5-5"
 key_env = "ANTHROPIC_API_KEY"
 input_price = 0.10
 output_price = 0.50
+cache_read_price = 0.01

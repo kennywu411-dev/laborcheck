@@ -59,7 +59,12 @@ class FakeAnthropic:
 
     def stream(self, **kw):
         self.n += 1
-        usage = NS(input_tokens=50, output_tokens=10)
+        usage = NS(
+            input_tokens=50,
+            output_tokens=10,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
         if self.refuse:
             return FakeStream(NS(stop_reason="refusal", content=[], usage=usage))
         if self.n == 1:

@@ -27,9 +27,17 @@ class ModelSpec:
     input_price: float = 0.0
     output_price: float = 0.0
     effort: str = ""
+    cache_read_price: float = 0.0  # 美元 / 百万 token；缓存写入按输入价的 1.25 倍计
 
-    def cost(self, tokens_in: int, tokens_out: int) -> float:
-        return (tokens_in * self.input_price + tokens_out * self.output_price) / 1_000_000
+    def cost(
+        self, tokens_in: int, tokens_out: int, cache_read: int = 0, cache_write: int = 0
+    ) -> float:
+        return (
+            tokens_in * self.input_price
+            + tokens_out * self.output_price
+            + cache_read * self.cache_read_price
+            + cache_write * self.input_price * 1.25
+        ) / 1_000_000
 
     def has_key(self) -> bool:
         return self.api == "offline" or bool(os.environ.get(self.key_env))
@@ -40,6 +48,8 @@ class Reply:
     text: str
     tokens_in: int = 0
     tokens_out: int = 0
+    cache_read: int = 0
+    cache_write: int = 0
     cost_usd: float = 0.0
     latency_s: float = 0.0
     trace: list[dict[str, Any]] = field(default_factory=list)
@@ -101,7 +111,9 @@ class Client:
         except Exception as e:  # 记录失败，不中断整轮测评
             reply = Reply(text="", error=f"{type(e).__name__}: {e}")
         reply.latency_s = round(time.perf_counter() - t0, 2)
-        reply.cost_usd = self.spec.cost(reply.tokens_in, reply.tokens_out)
+        reply.cost_usd = self.spec.cost(
+            reply.tokens_in, reply.tokens_out, reply.cache_read, reply.cache_write
+        )
         return reply
 
     async def _ask_openai(self, system: str, user: str, with_tools: bool) -> Reply:
@@ -173,7 +185,10 @@ class Client:
             kwargs: dict[str, Any] = {
                 "model": self.spec.model,
                 "max_tokens": MAX_TOKENS,
-                "system": system,
+                # 渲染顺序为 tools -> system：在系统提示上打缓存标记，工具定义和系统提示一起缓存
+                "system": [
+                    {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+                ],
                 "messages": messages,
             }
             if self.spec.effort:
@@ -184,6 +199,8 @@ class Client:
                 resp = await stream.get_final_message()
             reply.tokens_in += resp.usage.input_tokens
             reply.tokens_out += resp.usage.output_tokens
+            reply.cache_read += getattr(resp.usage, "cache_read_input_tokens", 0) or 0
+            reply.cache_write += getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
             if resp.stop_reason == "refusal":
                 reply.trace.append({"stop_reason": "refusal"})
                 reply.text = ""

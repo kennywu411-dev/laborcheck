@@ -40,7 +40,7 @@ from laborcheck.rules.overtime import OvertimeKind
 from laborcheck.rules.penalty import PenaltyKind
 from laborcheck.rules.probation import TermKind
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 HOLDOUT_SHARE = 0.3
 
 Item = dict[str, Any]
@@ -802,7 +802,7 @@ def gen_take_home(rng: random.Random, cities: list[CityPolicy]) -> Iterator[Item
             q = (
                 f"应届生拿到{city.name}的 offer：月薪 {g} 元，12 个月{btxt}；社保和公积金都按月薪作为基数，"
                 f"公积金按{city.name}允许的最高比例 {top:%} 缴存，社保按{city.name}{city.period}标准（只算{_si_scope(city)}的个人部分），"
-                "没有专项附加扣除。全年税后到手收入（不含公积金）是多少元？"
+                "没有专项附加扣除。全年税后到手的现金收入是多少元？（税前工资和年终奖，扣除个人缴纳的社保、个人缴纳的公积金和个税；公积金账户里的钱不算作到手收入。）"
             )
             yield _item(
                 "take_home",
@@ -830,7 +830,7 @@ def gen_take_home(rng: random.Random, cities: list[CityPolicy]) -> Iterator[Item
         q = (
             f"应届生有两个 offer：{a.name}月薪 {ga} 元，{b.name}月薪 {gb} 元，都是 12 薪、没有年终奖，"
             f"社保公积金都按月薪作为基数、公积金按各自城市允许的最高比例缴存，社保按各自城市现行标准（{a.name}只算{_si_scope(a)}，{b.name}只算{_si_scope(b)}，均为个人部分），"
-            f"没有专项附加扣除。{a.name} offer 的全年税后到手收入（不含公积金）比{b.name}多多少元？（少则为负数）"
+            f"没有专项附加扣除。{a.name} offer 的全年税后到手现金收入（扣除个人社保、个人公积金和个税，公积金账户里的钱不算）比{b.name}多多少元？（少则为负数）"
         )
         yield _item("offer_compare", "calc", q, f, city=a, amount=diff, needs_local=True)
 
