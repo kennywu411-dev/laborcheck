@@ -183,7 +183,7 @@ def compare_runs(run_a: Path, run_b: Path, slices: tuple[str, ...] = ()) -> dict
 
 
 def mcnemar_table(pairs: list[tuple[Path, Path]]) -> str:
-    """两种模式的配对比较表（docs/results.md 的格式）：每对是 (仅模型, 加工具)。"""
+    """两种模式的配对比较表（docs/测评结果.md 的格式）：每对是 (仅模型, 加工具)。"""
     lines = [
         "| 模型 | 仅加工具后答对 | 仅不加工具时答对 | p 值 |",
         "|---|---|---|---|",

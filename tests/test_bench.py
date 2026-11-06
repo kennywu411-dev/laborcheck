@@ -201,7 +201,7 @@ def test_mcnemar_table_matches_results_doc():
         for m in ("claude", "claude-sonnet", "claude-haiku")
     ]
     table = mcnemar_table(pairs)
-    doc = Path("docs/results.md").read_text("utf-8")
+    doc = Path("docs/测评结果.md").read_text("utf-8")
     assert table in doc
     assert "| Claude Opus 5.5 | 42 | 4 | 5.1e-09 |" in table
 
