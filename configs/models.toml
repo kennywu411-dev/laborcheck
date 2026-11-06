@@ -1,0 +1,65 @@
+# 参与测评的模型。api = "openai"（兼容 OpenAI Chat Completions 接口）或 "anthropic"。
+# 价格单位：美元 / 百万 token，按各家官网标价填写，人民币标价按 1 美元 = 7.1 元换算。
+# 模型名和价格会变，正式运行前请到官网核对；运行记录会保存当时使用的配置。
+
+[deepseek]
+display = "DeepSeek-V3（deepseek-chat）"
+api = "openai"
+base_url = "https://api.deepseek.com"
+model = "deepseek-chat"
+key_env = "DEEPSEEK_API_KEY"
+input_price = 0.28
+output_price = 0.42
+
+[doubao]
+display = "豆包（doubao-seed-1-6）"
+api = "openai"
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+model = "doubao-seed-1-6-250615"   # 也可以填方舟控制台里的推理接入点 ID
+key_env = "ARK_API_KEY"
+input_price = 0.11
+output_price = 1.13
+
+[kimi]
+display = "Kimi K2"
+api = "openai"
+base_url = "https://api.moonshot.cn/v1"
+model = "kimi-k2-0905-preview"
+key_env = "MOONSHOT_API_KEY"
+input_price = 0.56
+output_price = 2.25
+
+[qwen]
+display = "通义千问 Qwen3-Max"
+api = "openai"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+model = "qwen3-max"
+key_env = "DASHSCOPE_API_KEY"
+input_price = 0.85
+output_price = 3.38
+
+[gpt]
+display = "GPT-5 mini"
+api = "openai"
+base_url = "https://api.openai.com/v1"
+model = "gpt-5-mini"
+key_env = "OPENAI_API_KEY"
+input_price = 0.25
+output_price = 2.00
+
+[claude]
+display = "Claude Opus 5.5"
+api = "anthropic"
+model = "claude-opus-5-5"
+key_env = "ANTHROPIC_API_KEY"
+input_price = 4.00
+output_price = 20.00
+effort = "medium"
+
+[claude-haiku]
+display = "Claude Haiku 5.5"
+api = "anthropic"
+model = "claude-haiku-5-5"
+key_env = "ANTHROPIC_API_KEY"
+input_price = 0.10
+output_price = 0.50

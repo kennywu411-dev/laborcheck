@@ -1,0 +1,37 @@
+[project]
+name = "laborcheck"
+version = "0.1.0"
+description = "中国劳动合同与 Offer 规则引擎及大模型评测集"
+readme = "README.md"
+authors = [
+    { name = "kennywu411-dev", email = "272751243+kennywu411-dev@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.0",
+    "openai>=2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+laborcheck = "laborcheck.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

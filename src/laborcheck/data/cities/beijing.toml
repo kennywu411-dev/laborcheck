@@ -1,0 +1,104 @@
+code = "beijing"
+name = "北京"
+period = "2026年度（社保、公积金自2026年7月起；最低工资自2025年9月1日起）"
+min_wage_excludes_personal_contrib = true
+notes = [
+  "经济补偿三倍封顶：北京以市统计部门发布的法人单位从业人员平均工资为封顶基数，2025年数字未找到官方来源，暂不提供（待核实）。人社局公布的全口径月平均工资12116元官方注明仅用于核定社保缴费基数，不能替代。",
+  "医疗保险个人缴费2%加每月3元大额互助出自《北京市基本医疗保险规定》现行文本；2026年市人社局说明各险种比例保持不变。",
+  "社保年度止期文件未写明，按惯例为2027年6月。",
+]
+
+[documents.bj_si_base_2026]
+name = "关于2026年度各项社会保险缴费工资基数上下限的通告（京人社发〔2026〕7号）"
+url = "https://rsj.beijing.gov.cn/xxgk/2024zcwj/202608/t20260821_4831461.html"
+
+[documents.bj_si_rates_table]
+name = "北京市历年养老、失业、工伤保险缴费基数上下限、缴费比例一览表（北京市人力资源和社会保障局）"
+url = "https://rsj.beijing.gov.cn/bm/ywml/202308/t20230804_3214781.html"
+
+[documents.bj_rates_unchanged_2026]
+name = "社保缴费基数上下限调整 各险种缴费比例变化吗？（首都之窗，2026年8月）"
+url = "https://www.beijing.gov.cn/fuwu/bmfw/sy/jrts/202608/t20260827_4839720.html"
+
+[documents.bj_medical_2021]
+name = "北京市医疗保障局 北京市财政局关于调整本市城镇职工基本医疗保险缴费比例的通知（政策解读）"
+url = "https://www.beijing.gov.cn/zhengce/zcjd/202101/t20210115_2220137.html"
+
+[documents.bj_medical_rule]
+name = "北京市基本医疗保险规定（第十条、第三十八条）"
+url = "https://www.beijing.gov.cn/gongkai/zfxxgk/zc/gz/202112/t20211215_2561945.html"
+
+[documents.bj_hf_2026]
+name = "北京住房公积金管理委员会办公室关于2026住房公积金年度缴存有关问题的通知（京房公积金管委会办〔2026〕6号）"
+url = "https://www.beijing.gov.cn/zhengce/zhengcefagui/202608/t20260824_4834975.html"
+
+[documents.bj_min_wage_2025]
+name = "关于调整北京市2025年最低工资标准的通知（京人社劳发〔2025〕7号）"
+url = "https://rsj.beijing.gov.cn/xxgk/2024zcwj/202507/t20250725_4158456.html"
+
+[min_wage_monthly]
+value = 2540
+source = "bj_min_wage_2025"
+period = "2025-09-01起"
+quote = "调整到每小时不低于14.6元、每月不低于2540元"
+
+[min_wage_hourly]
+value = 14.6
+source = "bj_min_wage_2025"
+period = "2025-09-01起"
+quote = "调整到每小时不低于14.6元、每月不低于2540元"
+
+[hf_base_lower]
+value = 2540
+source = "bj_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "月缴存基数下限2540元"
+
+[hf_base_upper]
+value = 36348
+source = "bj_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "月缴存基数上限为36348元"
+
+[hf_rate_min]
+value = 0.05
+source = "bj_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "2026住房公积金年度继续执行5%至12%的缴存比例政策。"
+
+[hf_rate_max]
+value = 0.12
+source = "bj_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "2026住房公积金年度继续执行5%至12%的缴存比例政策。"
+
+[[social_insurance]]
+code = "pension"
+name = "养老保险"
+base_lower = 7270
+base_upper = 36348
+employee_rate = 0.08
+employer_rate = 0.16
+source = "bj_si_base_2026"
+period = "2026年7月起；比例见市人社局一览表，2026年度保持不变"
+
+[[social_insurance]]
+code = "medical"
+name = "医疗保险（含生育）"
+base_lower = 7270
+base_upper = 36348
+employee_rate = 0.02
+employee_fixed = 3
+employer_rate = 0.098
+source = "bj_si_base_2026"
+period = "2026年7月起；单位9.8%见bj_medical_2021，个人2%加3元见bj_medical_rule"
+
+[[social_insurance]]
+code = "unemployment"
+name = "失业保险"
+base_lower = 7270
+base_upper = 36348
+employee_rate = 0.005
+employer_rate = 0.005
+source = "bj_si_base_2026"
+period = "2026年7月起；比例见市人社局一览表，2026年度保持不变"

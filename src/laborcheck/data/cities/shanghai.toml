@@ -1,0 +1,109 @@
+code = "shanghai"
+name = "上海"
+period = "2026年度（社保、公积金自2026年7月1日起；最低工资自2025年7月1日起）"
+min_wage_excludes_personal_contrib = true
+notes = [
+  "上海基本住房公积金缴存比例为单位和职工各5%至7%（取整数），另有补充公积金1%至5%，引擎只计算基本公积金。",
+  "个人养老8%、失业0.5%出自市人社局问答（现行口径），2026年未见单独发文；医疗个人2%见沪医保规〔2026〕2号。",
+  "社保公告未逐险种列出不同基数，引擎按统一上下限处理。",
+]
+
+[documents.sh_si_base_2026]
+name = "本市调整2026年度社保缴费基数上下限（上海市人力资源和社会保障局公告，2026年8月）"
+url = "https://rsj.sh.gov.cn/tgsgg_17341/20260818/t0035_1443203.html"
+
+[documents.sh_medical_2026]
+name = "关于继续阶段性降低本市职工基本医疗保险费费率的通知（沪医保规〔2026〕2号）"
+url = "https://ybj.sh.gov.cn/gfxwj/20260313/921e047144694b61b6df8ca0c5ef2cfc.html"
+
+[documents.sh_employer_rates]
+name = "单位缴纳社会保险费的比例是多少？（上海市人力资源和社会保障局问答）"
+url = "https://rsj.sh.gov.cn/tdjjf_17554/20250120/t0035_1430072.html"
+
+[documents.sh_employee_rates]
+name = "进企业工作，社保谁来缴？（上海市人力资源和社会保障局问答）"
+url = "https://rsj.sh.gov.cn/tmsztc_17502/20240416/t0035_1423583.html"
+
+[documents.sh_hf_2026]
+name = "关于2026年度上海市调整住房公积金缴存基数、比例以及月缴存额上下限的通知（沪公积金管委会〔2026〕3号）"
+url = "https://www.shanghai.gov.cn/gwk/affairs/content/0064@f3d788ec72e9404ebcbf3d27fda98435"
+
+[documents.sh_min_wage_2025]
+name = "上海市人力资源和社会保障局关于调整本市最低工资标准的通知（沪人社规〔2025〕10号）"
+url = "https://rsj.sh.gov.cn/tgzfl_17732/20250714/t0035_1434097.html"
+
+[documents.sh_severance_cap]
+name = "经济补偿上限如何确定？（上海市人力资源和社会保障局问答）"
+url = "https://rsj.sh.gov.cn/tjjbc_17536/20220804/t0035_1408709.html"
+
+[min_wage_monthly]
+value = 2740
+source = "sh_min_wage_2025"
+period = "2025-07-01起"
+quote = "月最低工资标准从2690元调整到2740元。"
+
+[min_wage_hourly]
+value = 25
+source = "sh_min_wage_2025"
+period = "2025-07-01起（非全日制）"
+quote = "小时最低工资标准从24元调整为25元。"
+
+[avg_monthly_wage]
+value = 12577
+source = "sh_si_base_2026"
+period = "2025年度，2026年7月起用于经济补偿封顶（口径见sh_severance_cap）"
+quote = "本市2025年度全口径城镇单位就业人员平均工资为12577元/月。"
+
+[hf_base_lower]
+value = 2740
+source = "sh_hf_2026"
+period = "2026年7月1日起"
+quote = "住房公积金缴存基数最高不超过37731元，最低不低于2740元。"
+
+[hf_base_upper]
+value = 37731
+source = "sh_hf_2026"
+period = "2026年7月1日起"
+quote = "住房公积金缴存基数最高不超过37731元，最低不低于2740元。"
+
+[hf_rate_min]
+value = 0.05
+source = "sh_hf_2026"
+period = "2026年7月1日起"
+quote = "单位和职工住房公积金缴存比例为各5%～7%（取整数值）。"
+
+[hf_rate_max]
+value = 0.07
+source = "sh_hf_2026"
+period = "2026年7月1日起"
+quote = "单位和职工住房公积金缴存比例为各5%～7%（取整数值）。"
+
+[[social_insurance]]
+code = "pension"
+name = "养老保险"
+base_lower = 7546
+base_upper = 37731
+employee_rate = 0.08
+employer_rate = 0.16
+source = "sh_si_base_2026"
+period = "2026年7月1日起；比例见sh_employer_rates、sh_employee_rates"
+
+[[social_insurance]]
+code = "medical"
+name = "医疗保险（含生育）"
+base_lower = 7546
+base_upper = 37731
+employee_rate = 0.02
+employer_rate = 0.09
+source = "sh_si_base_2026"
+period = "2026年7月1日起；比例见sh_medical_2026（2026-03-01至2027-02-28）"
+
+[[social_insurance]]
+code = "unemployment"
+name = "失业保险"
+base_lower = 7546
+base_upper = 37731
+employee_rate = 0.005
+employer_rate = 0.005
+source = "sh_si_base_2026"
+period = "2026年7月1日起；比例见sh_employer_rates、sh_employee_rates"

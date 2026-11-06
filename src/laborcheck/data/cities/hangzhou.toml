@@ -1,0 +1,86 @@
+code = "hangzhou"
+name = "杭州"
+period = "2026年度（社保基数自2026年1月起；公积金自2026年7月起；最低工资自2026年1月1日起，市区标准）"
+notes = [
+  "浙江省社保个人缴费基数全省统一；杭州职工医保按同一口径确定基数。",
+  "失业保险2026年费率未找到延续文件（阶段性降费文件执行至2025年12月31日），引擎暂不计算失业保险（待核实）。",
+  "公积金缴存基数下限按杭州市区标准2660元（桐庐、淳安、建德为2430元）。",
+  "经济补偿三倍封顶所用平均工资口径未找到官方规定，暂不提供（待核实）。",
+  "最低工资是否包含个人缴纳的社保公积金，浙江省和杭州市官方文件未明确（待核实）。",
+]
+
+[documents.zj_si_base_2026]
+name = "关于公布2026年社会保险有关基数的通知（浙人社发〔2026〕52号）"
+url = "https://rlsbt.zj.gov.cn/col/col1229506773/art/2026/art_2b4555c11a034b9e874038cbff2f84fb.html"
+
+[documents.zj_si_base_2026_jd]
+name = "《关于公布2026年度社会保险有关基数的通知》政策解读（浙江省人力资源和社会保障厅）"
+url = "https://rlsbt.zj.gov.cn/col/col1229101513/art/2026/art_e8b496ab59834390884b8d375cff1651.html"
+
+[documents.hz_medical_2025_88]
+name = "杭州市人民政府关于印发杭州市基本医疗保障办法的通知（杭政函〔2025〕88号）"
+url = "https://www.hangzhou.gov.cn/col/col1229051171/xszfwj/art/2025/art_be0c5ecb219a497491621830b71bc2c8.html"
+
+[documents.hz_hf_2026]
+name = "杭州住房公积金管理中心关于开展2026年度住房公积金调整工作的通知（杭公积金〔2026〕21号）"
+url = "http://gjj.hangzhou.gov.cn/col/col1229468386/art/2026/art_09cee14331fb44f2967fca0b8ac2ce27.html"
+
+[documents.hz_min_wage_2026]
+name = "杭州市人民政府关于调整市区最低工资标准的通知（杭政函〔2026〕16号）"
+url = "https://zfgb.hangzhou.gov.cn/ShiShuJuZiYuanJu/144/102220263/t113220263024/530201.shtml"
+
+[min_wage_monthly]
+value = 2660
+source = "hz_min_wage_2026"
+period = "2026-01-01起（市区）"
+quote = "从2026年1月1日起，将我市市区最低月工资标准调整为2660元，非全日制工作的最低小时工资标准调整为25元。"
+
+[min_wage_hourly]
+value = 25
+source = "hz_min_wage_2026"
+period = "2026-01-01起（市区，非全日制）"
+quote = "从2026年1月1日起，将我市市区最低月工资标准调整为2660元，非全日制工作的最低小时工资标准调整为25元。"
+
+[hf_base_lower]
+value = 2660
+source = "hz_hf_2026"
+period = "2026-07-01至2027-06-30（市区）"
+quote = "其中杭州市区为2660元，桐庐县、淳安县、建德市为2430元。"
+
+[hf_base_upper]
+value = 42151
+source = "hz_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "2026年度住房公积金缴存基数上限按杭州市2025年全市非私营单位就业人员月平均工资的3倍确定，缴存基数上限为42151元"
+
+[hf_rate_min]
+value = 0.05
+source = "hz_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "缴存单位在5%至12%的区间内，自主确定住房公积金缴存比例。"
+
+[hf_rate_max]
+value = 0.12
+source = "hz_hf_2026"
+period = "2026-07-01至2027-06-30"
+quote = "缴存单位在5%至12%的区间内，自主确定住房公积金缴存比例。"
+
+[[social_insurance]]
+code = "pension"
+name = "养老保险"
+base_lower = 5122
+base_upper = 25611
+employee_rate = 0.08
+employer_rate = 0.16
+source = "zj_si_base_2026_jd"
+period = "2026年度；解读算例按单位16%、个人8%计算（基数见zj_si_base_2026）"
+
+[[social_insurance]]
+code = "medical"
+name = "医疗保险（含生育）"
+base_lower = 5122
+base_upper = 25611
+employee_rate = 0.02
+employer_rate = 0.095
+source = "hz_medical_2025_88"
+period = "2026年1月1日起；基数按上年度浙江省加权平均工资60%—300%（zj_si_base_2026）"
