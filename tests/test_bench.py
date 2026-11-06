@@ -1,0 +1,239 @@
+import asyncio
+import json
+
+import pytest
+
+from laborcheck.bench import scoring
+from laborcheck.bench.providers import Client, ModelSpec
+from laborcheck.bench.runner import latest_records, run
+from laborcheck.bench.tools import call_tool, tool_specs
+
+VERDICT_ITEM = {
+    "input": {"format": "verdict"},
+    "expected": {"verdict": "违法", "basis": ["《中华人民共和国劳动合同法》第十九条"]},
+}
+AMOUNT_ITEM = {
+    "input": {"format": "amount"},
+    "expected": {"amount": 1080.0, "tolerance": 1.0, "basis": []},
+}
+REWRITE_ITEM = {
+    "input": {"format": "rewrite"},
+    "expected": {
+        "verdict": "违法",
+        "constraint": {"field": "key_value", "op": "<=", "value": 2, "min": 0},
+        "basis": ["《中华人民共和国劳动合同法》第十九条"],
+    },
+}
+
+
+def test_extract_last_json():
+    text = '分析……{"a": 1}\n最终：\n```json\n{"verdict": "违法", "amount": null}\n```'
+    assert scoring.extract_json(text) == {"verdict": "违法", "amount": None}
+
+
+def test_extract_json_with_nested_braces():
+    text = '{"verdict": "合法", "basis": ["{x}"], "amount": null}'
+    assert scoring.extract_json(text)["verdict"] == "合法"
+
+
+def test_no_json():
+    r = scoring.score(VERDICT_ITEM, "我认为违法")
+    assert r["passed"] is False and r["detail"]["reason"] == "no_json"
+
+
+@pytest.mark.parametrize(("v", "ok"), [("违法", True), ("不合法", True), ("合法", False)])
+def test_verdict(v, ok):
+    out = json.dumps({"verdict": v, "basis": ["劳动合同法第十九条"]}, ensure_ascii=False)
+    r = scoring.score(VERDICT_ITEM, out)
+    assert r["passed"] is ok
+    assert r["basis_hit"] is True
+
+
+@pytest.mark.parametrize(
+    ("a", "ok"), [(1080, True), ("1,080.00元", True), (1081, True), (1081.5, False), (None, False)]
+)
+def test_amount(a, ok):
+    assert scoring.score(AMOUNT_ITEM, json.dumps({"amount": a}))["passed"] is ok
+
+
+def test_rewrite_requires_all_parts():
+    good = {"verdict": "违法", "key_value": 2, "rewrite": "试用期为2个月。"}
+    assert scoring.score(REWRITE_ITEM, json.dumps(good, ensure_ascii=False))["passed"]
+    for bad in ({**good, "key_value": 3}, {**good, "rewrite": ""}, {**good, "verdict": "合法"}):
+        assert not scoring.score(REWRITE_ITEM, json.dumps(bad, ensure_ascii=False))["passed"]
+
+
+def test_tool_specs_valid():
+    names = [t["name"] for t in tool_specs()]
+    assert len(names) == len(set(names))
+    for t in tool_specs():
+        assert t["parameters"]["type"] == "object"
+
+
+def test_call_tool_ok_and_error():
+    out = json.loads(call_tool("bonus_tax", {"bonus": 36001}))
+    assert out["values"]["tax"] == 3390.10
+    assert "error" in json.loads(call_tool("bonus_tax", {}))
+    assert "error" in json.loads(call_tool("nope", {}))
+    out = json.loads(
+        call_tool(
+            "check_probation", {"term_kind": "fixed", "term_months": 12, "probation_months": 3}
+        )
+    )
+    assert out["ok"] is False
+
+
+def test_city_policy_tool():
+    out = json.loads(call_tool("get_city_policy", {"city": "上海"}))
+    assert out["housing_fund"]["rate_max"] == 0.07
+
+
+def test_oracle_run(tmp_path):
+    from laborcheck.cities import load_city
+    from laborcheck.evalset.generate import generate
+
+    items = generate(cities=[load_city("shanghai")])[:20]
+    spec = ModelSpec("oracle", "oracle", "offline", "oracle")
+    res = asyncio.run(run(spec, items, run_dir=tmp_path / "r", with_tools=False, budget_usd=1))
+    assert res["done"] == 20
+    recs = latest_records(tmp_path / "r")
+    assert all(r["passed"] for r in recs)
+    # 续跑不重复
+    asyncio.run(run(spec, items, run_dir=tmp_path / "r", with_tools=False, budget_usd=1))
+    assert len((tmp_path / "r" / "results.jsonl").read_text().splitlines()) == 20
+
+
+def test_client_offline():
+    reply = asyncio.run(
+        Client(ModelSpec("o", "o", "offline", "o")).ask(
+            "s", "u", with_tools=False, item={"expected": {"verdict": "合法", "basis": []}}
+        )
+    )
+    assert json.loads(reply.text)["verdict"] == "合法"
+
+
+def test_economic_compensation_tool_override():
+    out = json.loads(
+        call_tool(
+            "economic_compensation",
+            {
+                "avg_monthly_wage": 45000,
+                "months_worked": 170,
+                "city": "hangzhou",
+                "local_avg_monthly_wage": 12000,
+            },
+        )
+    )
+    assert out["values"]["amount"] == 432000.0
+    assert "error" in json.loads(
+        call_tool(
+            "economic_compensation",
+            {"avg_monthly_wage": 45000, "months_worked": 170, "city": "hangzhou"},
+        )
+    )
+
+
+def test_run_rows_carry_evalkit_fields(tmp_path):
+    from evalkit import store
+
+    from laborcheck.evalset.generate import generate
+
+    items = generate()[:6]
+    spec = ModelSpec("oracle", "oracle", "offline", "oracle")
+    rd = tmp_path / "r"
+    asyncio.run(
+        run(spec, items, run_dir=rd, with_tools=True, budget_usd=1, meta={"dataset_version": "9"})
+    )
+    rows = store.load_rows(rd)
+    assert {r["variant"] for r in rows} == {"oracle-tools"}
+    assert all(r["scores"]["laborcheck"]["passed"] and r["passed"] for r in rows)
+    cfg = store.load_config(rd)
+    assert cfg["mode"] == "tools" and cfg["model"]["name"] == "oracle"
+    assert cfg["dataset"]["version"] == "9" and cfg["primary_metric"] == "laborcheck"
+    assert not (rd / "traces").exists()  # 过程记在结果行里，不另写 trace 文件
+
+
+def test_errors_retried_and_counted_in_budget(tmp_path, monkeypatch):
+    from laborcheck.bench.providers import Reply
+    from laborcheck.evalset.generate import generate
+
+    items = generate()[:3]
+    calls = []
+
+    async def flaky(self, system, user, *, with_tools, item=None):
+        calls.append(item["id"])
+        if len(calls) <= 3:
+            return Reply(text="", error="APIError: boom", cost_usd=0.4)
+        return Reply(text=json.dumps({"verdict": item["expected"].get("verdict")}), cost_usd=0.1)
+
+    monkeypatch.setattr(Client, "ask", flaky)
+    spec = ModelSpec("x", "x", "offline", "x")
+    rd = tmp_path / "r"
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3))
+    assert res["done"] == 0 and res["spent_usd"] == 1.2
+    recs = latest_records(rd)
+    assert all(r["status"] == "error" and r["detail"] == {"reason": "error"} for r in recs)
+    # 续跑：出错的题重跑；已花的 1.2 计入上限 1.3，只够再发起一题
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3, concurrency=1))
+    assert res["stopped_by_budget"] and len(calls) == 4
+    assert res["spent_usd"] == 1.3
+    # 再续跑：被重跑掉的出错记录（0.4）仍算已花，累计 1.3 已到上限，不再发起调用
+    res = asyncio.run(run(spec, items, run_dir=rd, with_tools=False, budget_usd=1.3))
+    assert len(calls) == 4 and res["spent_usd"] == 1.3 and res["done"] == 1
+
+
+def test_legacy_run_cannot_resume(tmp_path):
+    rd = tmp_path / "old"
+    rd.mkdir()
+    (rd / "results.jsonl").write_text(json.dumps({"item_id": "lc-0001", "status": "ok"}) + "\n")
+    spec = ModelSpec("oracle", "oracle", "offline", "oracle")
+    with pytest.raises(SystemExit, match="接入 evalkit 之前"):
+        asyncio.run(run(spec, [], run_dir=rd, with_tools=False, budget_usd=1))
+
+
+def test_mcnemar_table_matches_results_doc():
+    from pathlib import Path
+
+    from laborcheck.bench.report import mcnemar_table
+
+    pairs = [
+        (Path(f"runs/v102-{m}-closed"), Path(f"runs/v102-{m}-tools"))
+        for m in ("claude", "claude-sonnet", "claude-haiku")
+    ]
+    table = mcnemar_table(pairs)
+    doc = Path("docs/测评结果.md").read_text("utf-8")
+    assert table in doc
+    assert "| Claude Opus 5.5 | 42 | 4 | 5.1e-09 |" in table
+
+
+def test_gate_and_dashboard_cli(tmp_path):
+    from laborcheck import cli
+
+    with pytest.raises(SystemExit) as e:
+        cli.main(
+            [
+                "gate",
+                "--baseline",
+                "runs/v102-claude-closed",
+                "--candidate",
+                "runs/v102-claude-tools",
+            ]
+        )
+    assert e.value.code == 0
+    with pytest.raises(SystemExit) as e:
+        cli.main(
+            [
+                "gate",
+                "--baseline",
+                "runs/v102-claude-tools",
+                "--candidate",
+                "runs/v102-claude-closed",
+            ]
+        )
+    assert e.value.code == 1
+    out = tmp_path / "site" / "index.html"
+    cli.main(
+        ["dashboard", "runs/pilot-claude-closed", "runs/pilot-claude-tools", "--out", str(out)]
+    )
+    html = out.read_text("utf-8")
+    assert "pilot-claude-tools" in html and "laborcheck" in html

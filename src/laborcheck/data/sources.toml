@@ -1,0 +1,87 @@
+# 依据文件登记表。url 指向官方发布页面；status: verified = 已对照官方原文核对。
+# 城市政策文件登记在各城市数据文件里，这里只放全国性的法律法规和政策。
+# flk.npc.gov.cn 为国家法律法规数据库，详情页为 /detail?id=<编号>。
+
+[labor_contract_law]
+name = "中华人民共和国劳动合同法"
+url = "https://flk.npc.gov.cn/detail?id=2c909fdd678bf17901678bf74d7106b3"
+version = "2012年12月28日修正，2013年7月1日起施行"
+status = "verified"
+
+[labor_contract_law_regulation]
+name = "中华人民共和国劳动合同法实施条例"
+url = "https://flk.npc.gov.cn/detail?id=ff8080816f3cbb3c016f40927caf049c"
+version = "国务院令第535号"
+status = "verified"
+
+[labor_law]
+name = "中华人民共和国劳动法"
+url = "https://flk.npc.gov.cn/detail?id=ff8080816f135f46016f20f16ee11737"
+version = "2018年12月29日修正"
+status = "verified"
+
+[spc_labor_interp_1]
+name = "最高人民法院关于审理劳动争议案件适用法律问题的解释（一）"
+url = "https://flk.npc.gov.cn/detail?id=ff80808177e75f88017800739d621b12"
+version = "法释〔2020〕26号"
+status = "verified"
+
+[spc_labor_interp_2]
+name = "最高人民法院关于审理劳动争议案件适用法律问题的解释（二）"
+url = "https://flk.npc.gov.cn/detail?id=ff80818198a7eafa0199329bcc11687f"
+version = "法释〔2025〕12号，2025年9月1日起施行"
+status = "verified"
+
+[iit_law]
+name = "中华人民共和国个人所得税法"
+url = "https://flk.npc.gov.cn/detail?id=2c909fdd678bf17901678bf724bd0609"
+version = "2018年8月31日修正"
+status = "verified"
+
+[iit_withholding_2018_61]
+name = "个人所得税扣缴申报管理办法（试行）（国家税务总局公告2018年第61号）"
+url = "https://fgk.chinatax.gov.cn/zcfgk/c100012/c5194838/content.html"
+status = "verified"
+
+[bonus_2023_30]
+name = "财政部 税务总局关于延续实施全年一次性奖金个人所得税政策的公告（财政部 税务总局公告2023年第30号）"
+url = "https://fgk.chinatax.gov.cn/zcfgk/c102416/c5211524/content.html"
+version = "执行至2027年12月31日"
+status = "verified"
+
+[special_deduction_2023_13]
+name = "国务院关于提高个人所得税有关专项附加扣除标准的通知（国发〔2023〕13号）"
+url = "https://www.gov.cn/zhengce/content/202308/content_6901206.htm"
+status = "verified"
+
+[annual_leave_reg]
+name = "职工带薪年休假条例"
+url = "https://flk.npc.gov.cn/detail?id=ff8080816f3e98bd016f420b9b460371"
+version = "国务院令第514号"
+status = "verified"
+
+[annual_leave_measures]
+name = "企业职工带薪年休假实施办法"
+url = "https://www.gov.cn/zhengce/2022-08/31/content_5711300.htm"
+version = "人力资源社会保障部令第1号"
+status = "verified"
+
+[wage_days_2025_2]
+name = "人力资源社会保障部关于职工全年月平均工作时间和工资折算问题的通知（人社部发〔2025〕2号）"
+url = "https://www.gov.cn/zhengce/zhengceku/202501/content_6995777.htm"
+version = "月计薪天数21.75天；同时废止劳社部发〔2008〕3号"
+status = "verified"
+
+[working_hours_reg]
+name = "国务院关于职工工作时间的规定"
+url = "https://flk.npc.gov.cn/detail?id=ff8080816f3cbb3c016f41260ca619e7"
+version = "国务院令第146号"
+status = "verified"
+
+# ---- 地方性法规（被规则直接引用的） ----
+
+[sz_tech_secret_reg]
+name = "深圳经济特区企业技术秘密保护条例"
+url = "https://www.sz.gov.cn/zfgb/2020/gb1164/content/post_8047987.html"
+version = "2019年10月31日第二次修正"
+status = "verified"
