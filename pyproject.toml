@@ -19,7 +19,7 @@ build-backend = "uv_build"
 
 # 评测平台 evalkit：运行、统计、对比、门禁、看板都由它提供
 [tool.uv.sources]
-evalkit = { git = "https://github.com/kennywu411-dev/evalkit", rev = "a13ff0a7f9ac78bf3196b2eaa2bf525bc2b4fa25" }
+evalkit = { git = "https://github.com/kennywu411-dev/evalkit", rev = "3a8cd4034ec7ee81fa488606526f74aed461c4d8" }
 
 [dependency-groups]
 dev = [
