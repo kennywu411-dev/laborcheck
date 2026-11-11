@@ -233,7 +233,7 @@ def test_gate_and_dashboard_cli(tmp_path):
     assert e.value.code == 1
     out = tmp_path / "site" / "index.html"
     cli.main(
-        ["dashboard", "runs/pilot-claude-closed", "runs/pilot-claude-tools", "--out", str(out)]
+        ["dashboard", "runs/trial-claude-closed", "runs/trial-claude-tools", "--out", str(out)]
     )
     html = out.read_text("utf-8")
-    assert "pilot-claude-tools" in html and "laborcheck" in html
+    assert "trial-claude-tools" in html and "laborcheck" in html

@@ -1,14 +1,14 @@
 {
-  "run_id": "pilot-qwen-tools",
+  "run_id": "trial-claude-haiku-tools",
   "model": {
-    "name": "qwen",
-    "display": "通义千问 Qwen3.8-Max",
-    "api": "openai",
-    "model": "qwen3.8-max",
-    "key_env": "DASHSCOPE_API_KEY",
-    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "input_price": 1.69,
-    "output_price": 5.07,
+    "name": "claude-haiku",
+    "display": "Claude Haiku 5.5",
+    "api": "anthropic",
+    "model": "claude-haiku-5-5",
+    "key_env": "ANTHROPIC_API_KEY",
+    "base_url": "",
+    "input_price": 0.1,
+    "output_price": 0.5,
     "effort": ""
   },
   "mode": "tools",

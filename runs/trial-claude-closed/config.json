@@ -1,15 +1,15 @@
 {
-  "run_id": "pilot-claude-haiku-closed",
+  "run_id": "trial-claude-closed",
   "model": {
-    "name": "claude-haiku",
-    "display": "Claude Haiku 5.5",
+    "name": "claude",
+    "display": "Claude Opus 5.5",
     "api": "anthropic",
-    "model": "claude-haiku-5-5",
+    "model": "claude-opus-5-5",
     "key_env": "ANTHROPIC_API_KEY",
     "base_url": "",
-    "input_price": 0.1,
-    "output_price": 0.5,
-    "effort": ""
+    "input_price": 4.0,
+    "output_price": 20.0,
+    "effort": "medium"
   },
   "mode": "closed",
   "system_prompt": "你是熟悉中国劳动法律法规和薪酬、社保、个税计算的助手。请按中国大陆现行法律法规和政策回答问题；题目涉及地方标准的，以题面指明的城市和年度为准。\n\n回答要求：先简要写出分析和计算过程，最后单独一行输出一个 JSON 对象，字段如下：\n- \"verdict\"：判断题和改写题填 \"合法\" 或 \"违法\"；计算题填 null\n- \"amount\"：计算题填最终数字（只写数字，不带单位和千分位逗号，金额保留两位小数）；其他题填 null\n- \"key_value\"：改写题按题目要求填一个数字；其他题填 null\n- \"rewrite\"：改写题填改写后的条款原文；其他题填 null\n- \"basis\"：所依据的法律法规或政策文件名称及条号，字符串列表",
@@ -18,7 +18,7 @@
     "amount": "（这是计算题：amount 必填。）",
     "rewrite": "（这是改写题：verdict、key_value 必填；如认为合法，key_value 填原条款中的对应数值，rewrite 填 null。）"
   },
-  "budget_usd": 0.5,
+  "budget_usd": 1.0,
   "item_ids": [
     "lc-0009",
     "lc-0011",
